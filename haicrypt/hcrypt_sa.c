@@ -1,19 +1,11 @@
 /*
  * SRT - Secure, Reliable, Transport
- * Copyright (c) 2017 Haivision Systems Inc.
+ * Copyright (c) 2018 Haivision Systems Inc.
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; If not, see <http://www.gnu.org/licenses/>
  */
 
 
@@ -34,7 +26,7 @@ written by
 #include <string.h>				/* memcpy */
 #include "hcrypt.h"
 
-int hcryptCtx_SetSecret(hcrypt_Session *crypto, hcrypt_Ctx *ctx, HaiCrypt_Secret *secret)
+int hcryptCtx_SetSecret(hcrypt_Session *crypto, hcrypt_Ctx *ctx, const HaiCrypt_Secret *secret)
 {
 	int iret;
 	(void)crypto;
@@ -45,9 +37,9 @@ int hcryptCtx_SetSecret(hcrypt_Session *crypto, hcrypt_Ctx *ctx, HaiCrypt_Secret
 		ctx->cfg.pwd_len = 0;
 		/* KEK: Key Encrypting Key */
 		if (HCRYPT_CTX_F_ENCRYPT & ctx->flags) {
-			iret = AES_set_encrypt_key(secret->str, secret->len * 8, &ctx->aes_kek);
+			iret = hcrypt_aes_set_encrypt_key(secret->str, secret->len * 8, &ctx->aes_kek);
 		} else {
-			iret = AES_set_decrypt_key(secret->str, secret->len * 8, &ctx->aes_kek);
+			iret = hcrypt_aes_set_decrypt_key(secret->str, secret->len * 8, &ctx->aes_kek);
 		}			
 		if (0 > iret) {
 		HCRYPT_LOG(LOG_ERR, "AES_set_%s_key(kek[%zd]) failed (rc=%d)\n", 
@@ -88,7 +80,7 @@ int hcryptCtx_GenSecret(hcrypt_Session *crypto, hcrypt_Ctx *ctx)
 	int iret;
 	(void)crypto;
 
-	PKCS5_PBKDF2_HMAC_SHA1(ctx->cfg.pwd, ctx->cfg.pwd_len, 
+	hcrypt_pbkdf2_hmac_sha1(ctx->cfg.pwd, ctx->cfg.pwd_len, 
 		&ctx->salt[ctx->salt_len - pbkdf_salt_len], pbkdf_salt_len, 
 		HAICRYPT_PBKDF2_ITER_CNT, kek_len, kek);
 
@@ -97,12 +89,12 @@ int hcryptCtx_GenSecret(hcrypt_Session *crypto, hcrypt_Ctx *ctx)
 	
 	/* KEK: Key Encrypting Key */
 	if (HCRYPT_CTX_F_ENCRYPT & ctx->flags) {
-		if (0 > (iret = AES_set_encrypt_key(kek, kek_len * 8, &ctx->aes_kek))) {
+		if (0 > (iret = hcrypt_aes_set_encrypt_key(kek, kek_len * 8, &ctx->aes_kek))) {
 		HCRYPT_LOG(LOG_ERR, "AES_set_encrypt_key(pdkek[%zd]) failed (rc=%d)\n", kek_len, iret);
 			return(-1);
 		}
 	} else {
-		if (0 > (iret = AES_set_decrypt_key(kek, kek_len * 8, &ctx->aes_kek))) {
+		if (0 > (iret = hcrypt_aes_set_decrypt_key(kek, kek_len * 8, &ctx->aes_kek))) {
 		HCRYPT_LOG(LOG_ERR, "AES_set_decrypt_key(pdkek[%zd]) failed (rc=%d)\n", kek_len, iret);
 			return(-1);
 		}

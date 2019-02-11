@@ -1,19 +1,11 @@
 /*
  * SRT - Secure, Reliable, Transport
- * Copyright (c) 2017 Haivision Systems Inc.
+ * Copyright (c) 2018 Haivision Systems Inc.
  * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; If not, see <http://www.gnu.org/licenses/>
  */
 
 
@@ -33,7 +25,9 @@ written by
 #include <string.h>
 #include <openssl/evp.h>	/* PKCS5_xxx() */
 #include <openssl/aes.h>	/* AES_xxx() */
-#include <openssl/modes.h>	/* CRYPTO_xxx() */
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(OPENSSL_IS_BORINGSSL))
+# include <openssl/modes.h>	/* CRYPTO_xxx() */
+#endif
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
@@ -209,9 +203,9 @@ static int hcOpenSSL_AES_SetKey(hcrypt_CipherData *cipher_data, hcrypt_Ctx *ctx,
 }
 
 static int hcOpenSSL_AES_Encrypt(
-	hcrypt_CipherData *cipher_data, 
+	hcrypt_CipherData *cipher_data,
 	hcrypt_Ctx *ctx,
-	hcrypt_DataDesc *in_data, int nbin, 
+	hcrypt_DataDesc *in_data, int nbin ATR_UNUSED,
 	void *out_p[], size_t out_len_p[], int *nbout_p)
 {
 	hcOpenSSL_AES_data *aes_data = (hcOpenSSL_AES_data *)cipher_data;
@@ -265,14 +259,13 @@ static int hcOpenSSL_AES_Encrypt(
 			hcrypt_SetCtrIV((unsigned char *)&pki, ctx->salt, iv);
 
 			/* Encrypt packet payload in output message buffer */
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(OPENSSL_IS_BORINGSSL))
 			CRYPTO_ctr128_encrypt(in_data[0].payload, &out_msg[pfx_len], 
 				in_data[0].len, aes_key, iv, ctr, &blk_ofs, (block128_f) AES_encrypt);
 #else
-			AES_ctr128_encrypt(in_data[0].payload, &out_msg[pfx_len], 
+			AES_ctr128_encrypt(in_data[0].payload, &out_msg[pfx_len],
 				in_data[0].len, aes_key, iv, ctr, &blk_ofs);
 #endif
-
 
 			/* Prepend packet prefix (clear text) in output buffer */
 			memcpy(out_msg, in_data[0].pfx, pfx_len);
@@ -356,7 +349,7 @@ static int hcOpenSSL_AES_Encrypt(
 
 
 static int hcOpenSSL_AES_Decrypt(hcrypt_CipherData *cipher_data, hcrypt_Ctx *ctx,
-	hcrypt_DataDesc *in_data, int nbin, void *out_p[], size_t out_len_p[], int *nbout_p)
+	hcrypt_DataDesc *in_data, int nbin ATR_UNUSED, void *out_p[], size_t out_len_p[], int *nbout_p)
 {
 	hcOpenSSL_AES_data *aes_data = (hcOpenSSL_AES_data *)cipher_data;
 	unsigned char *out_txt;
@@ -403,11 +396,11 @@ static int hcOpenSSL_AES_Decrypt(hcrypt_CipherData *cipher_data, hcrypt_Ctx *ctx
 			hcrypt_SetCtrIV((unsigned char *)&pki, ctx->salt, iv);
 
 			/* Decrypt message (same as encrypt for CTR mode) */
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-			CRYPTO_ctr128_encrypt(in_data[0].payload, out_txt, 
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined(OPENSSL_IS_BORINGSSL))
+			CRYPTO_ctr128_encrypt(in_data[0].payload, out_txt,
 				in_data[0].len, aes_key, iv, ctr, &blk_ofs, (block128_f) AES_encrypt);
 #else
-			AES_ctr128_encrypt(in_data[0].payload, out_txt, 
+			AES_ctr128_encrypt(in_data[0].payload, out_txt,
 				in_data[0].len, aes_key, iv, ctr, &blk_ofs);
 #endif
 			out_len = in_data[0].len;
